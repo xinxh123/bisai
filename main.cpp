@@ -63,10 +63,10 @@ private:
 class Edge
 {
 public:
-    unsigned short int iTo;
-    int iDis;
-    int Edge_num;
-    int *PassStatus;
+    unsigned short int iTo;//线终点
+    int iDis;//线距离
+    int Edge_num;//线编号
+    int *PassStatus;//线状态数组
 private:
     
 };
@@ -85,29 +85,29 @@ public:
     unsigned short int iStart;
     unsigned short int iEnd;
     unsigned int cost;
-    vector<int> Route;
-    vector<int> EdgeNum;
-    int pass_num;
-    vector<int> AmplifierNode;
+    vector<int> Route;//路径
+    vector<int> EdgeNum;//路径所经历的边的编号
+    int pass_num;//所用通道号
+    vector<int> AmplifierNode;//所经历的有放大器的点
     
 private:
 };
 
 int ReadFile();//读文件
-int Sort();
+int Sort();对输入数据进行排序，已让相同边的距离按大小排序
 
 void dijkstra(Task *ptTask);//求最短路径
 void GetRoute(int i,vector<int> *Route);//从父子序列中得到route
 
-int * CountPassNum(vector<int> Route,int num,vector<int>* Task_Lines);//计算所用边的数量
+int * CountPassNum(vector<int> Route,int num,vector<int>* Task_Lines);//计算所用边的数量舍弃
 
-void check(vector<int> &src, map<int,int> &dst);
-int ConfirmPassNum(vector<int> Route,int *NewNode,vector<int> *EdgeNums);
-int GetEdgeNum(int Start,int End,vector<Edge> edge);
-void SetNewEdge(int Start,int End);
+void check(vector<int> &src, map<int,int> &dst);//舍弃
+int ConfirmPassNum(vector<int> Route,int *NewNode,vector<int> *EdgeNums);//确定任务所用通道号
+int GetEdgeNum(int Start,int End,vector<Edge> edge);通过起止点，确认所用边的编号，根据这个编号确认其在gEdge中的位置
+void SetNewEdge(int Start,int End);//在起止点上放一条新边，它的长度最小，位置在原同边位置上
 void SetAm(int Start,int End);
-void GetAmplifierNode(vector<int> *AmplifierNode,vector<int> Route);
-void OutPut(Task *pcTask);
+void GetAmplifierNode(vector<int> *AmplifierNode,vector<int> Route);返回有放大器的点
+void OutPut(Task *pcTask);输出函数
 
 typedef pair<int,int> Pair;
 
@@ -124,12 +124,12 @@ unsigned int iMax_DisToStance;
 bool Deter[maxn];//是否已确定
 int DisToS[maxn];//距离原点距离
 Node node[maxn];
-vector<Edge> g_tEdge[maxn];//数组，序号是点，内容是边的集合
+vector<Edge> g_tEdge[maxn];//数组，序号是点，内容是边的集合核心
 int father[maxn];//父子数组，序号是子，内容是父，创建输出路径
 
 int NewEdgeNum = 0;//新增边的数量
-vector<int> NewEdgeNode;
-vector<vector<int>> input_data;
+vector<int> NewEdgeNode;  //新增边起止集合
+vector<vector<int>> input_data;输入数据
 
 
 
@@ -225,7 +225,7 @@ void dijkstra(Task *ptTask)
 			}           
 		}
 		if(pos == ptTask->iEnd){
-			//说明所有顶点都已经被确定了，此时我们这个算法就可以结束了。
+			//终点的最短距离已确定
 			break;
 		}
         // for (const auto& j : ptTask->Route[3])
@@ -237,11 +237,9 @@ void dijkstra(Task *ptTask)
 			//遍历pos顶点所有的边，更新最短路径。
 			to = g_tEdge[pos][i].iTo;
             len = g_tEdge[pos][i].iDis;
-			if(!Deter[to] && DisToS[to] > DisToS[pos] + len){
+			if(!Deter[to] && DisToS[to] > DisToS[pos] + len){//若这点没确定，而且原D大于已确定点加到此点距离，更新
 				DisToS[to] = DisToS[pos] + len;
-                father[to] = pos;
-                // if (g_tEdge[pos][i].bPass)
-                    // g_tEdge[pos][i].bPass[ptTask->p_num] = true;
+                father[to] = pos;//下标是子点，内容是父点
             }
 		}
 	}
@@ -264,30 +262,30 @@ int ConfirmPassNum(vector<int> Route,int *NewNode,vector<int> *EdgeNums)
             
             for(int n = 0; n < tmp%10; n++)//此点所有边的循环
             {
-                if(g_tEdge[Route[m]][tmp/10+n].PassStatus[j] == 0)
+                if(g_tEdge[Route[m]][tmp/10+n].PassStatus[j] == 0)此点此边的此通道未占用
                 {
                     PassIsTrue = false;
-                    edge_num[m] = n;
+                    edge_num[m] = n;将此点此边的位置号传回
                     break;
                 }                    
                 PassIsTrue = true;
             }
             if(PassIsTrue == true)
             {
-                *NewNode = m;
-                break;
+                *NewNode = m;将阻碍的边的位置号传回，用来设置新边。
+                break;结束此通道号的循环，进行下一个通道号
             }        
         }
-        if(PassIsTrue == false)
+        if(PassIsTrue == false)此通道号在路径所用边上均有空位，可以将此通道号确定。
         {
             dis = 0;
             for(int m = 0; m < Route.size() -1 ; m++)//所经点的循环
             {
                 tmp = GetEdgeNum(Route[m],Route[m+1],g_tEdge[Route[m]]);
-                g_tEdge[Route[m]][tmp/10 + edge_num[m]].PassStatus[j] = 1;
+                g_tEdge[Route[m]][tmp/10 + edge_num[m]].PassStatus[j] = 1;//此边此通号占用
                 tmp = GetEdgeNum(Route[m+1],Route[m],g_tEdge[Route[m + 1]]);
                 g_tEdge[Route[m + 1]][tmp/10 + edge_num[m]].PassStatus[j] = 1;
-                EdgeNums->push_back(g_tEdge[Route[m + 1]][tmp/10 + edge_num[m]].Edge_num);
+                EdgeNums->push_back(g_tEdge[Route[m + 1]][tmp/10 + edge_num[m]].Edge_num);//将所用到的边的ID放入任务的容器中
                 if (node[Route[m]].bIsAmplifier == true)
                     dis = 0;
                 dis = dis + g_tEdge[Route[m]][tmp/10 + edge_num[m]].iDis;
@@ -424,6 +422,8 @@ void SetNewEdge(int Start,int End)
 		g_tEdge[Start][tmp/10].PassStatus[i] = 0;
 	}
     g_tEdge[Start][tmp/10].Edge_num = iLine_num + NewEdgeNum;
+    g_tEdge[End].insert(g_tEdge[End].begin() + tmp/10,g_tEdge[Start][tmp/10]);
+	g_tEdge[End].[tmp/10].iTo = Start;
     NewEdgeNode.push_back(Start);
     NewEdgeNode.push_back(End);
 }
