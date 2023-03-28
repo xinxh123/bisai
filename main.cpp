@@ -262,21 +262,21 @@ int ConfirmPassNum(vector<int> Route,int *NewNode,vector<int> *EdgeNums)
             
             for(int n = 0; n < tmp%10; n++)//此点所有边的循环
             {
-                if(g_tEdge[Route[m]][tmp/10+n].PassStatus[j] == 0)此点此边的此通道未占用
+                if(g_tEdge[Route[m]][tmp/10+n].PassStatus[j] == 0)//此点此边的此通道未占用
                 {
                     PassIsTrue = false;
-                    edge_num[m] = n;将此点此边的位置号传回
+                    edge_num[m] = n;//将此点此边的位置号传回
                     break;
                 }                    
                 PassIsTrue = true;
             }
             if(PassIsTrue == true)
             {
-                *NewNode = m;将阻碍的边的位置号传回，用来设置新边。
-                break;结束此通道号的循环，进行下一个通道号
+                *NewNode = m;//将阻碍的边的位置号传回，用来设置新边。
+                break;//结束此通道号的循环，进行下一个通道号
             }        
         }
-        if(PassIsTrue == false)此通道号在路径所用边上均有空位，可以将此通道号确定。
+        if(PassIsTrue == false)//此通道号在路径所用边上均有空位，可以将此通道号确定。
         {
             dis = 0;
             for(int m = 0; m < Route.size() -1 ; m++)//所经点的循环
