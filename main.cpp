@@ -19,10 +19,12 @@
 #include <sstream>
 #include <string.h>
 #include <strings.h>
+#include <utility>
 
 
 using namespace std;
 
+#define  DOUINT  pair<int,int>
 
 inline int equals(int a, int b){
 	return a == b;
@@ -35,15 +37,6 @@ inline int Combine(int a, int b,int d){
         b = c;
     }
     return a*100+b*10+d;
-}
-inline int Combine(int a, int b){
-	if (a > b)
-    {
-        int c = a;
-        a = b;
-        b = c;
-    }
-    return a*10+b;
 }
 inline void VertorOut(vector<int> a){
     for (const auto& i : a)
@@ -71,12 +64,6 @@ private:
     
 };
 
-class PassNum
-{
-public:
-    int num;
-    int times;
-};
 
 
 class Task
@@ -94,26 +81,21 @@ private:
 };
 
 int ReadFile();//读文件
-int Sort();对输入数据进行排序，已让相同边的距离按大小排序
+int Sort();//对输入数据进行排序，已让相同边的距离按大小排序
 
 void dijkstra(Task *ptTask);//求最短路径
 void GetRoute(int i,vector<int> *Route);//从父子序列中得到route
 
-int * CountPassNum(vector<int> Route,int num,vector<int>* Task_Lines);//计算所用边的数量舍弃
-
-void check(vector<int> &src, map<int,int> &dst);//舍弃
 int ConfirmPassNum(vector<int> Route,int *NewNode,vector<int> *EdgeNums);//确定任务所用通道号
-int GetEdgeNum(int Start,int End,vector<Edge> edge);通过起止点，确认所用边的编号，根据这个编号确认其在gEdge中的位置
+DOUINT GetEdgeNum(int Start,int End,vector<Edge> edge);//通过起止点，确认所用边的编号，根据这个编号确认其在gEdge中的位置
 void SetNewEdge(int Start,int End);//在起止点上放一条新边，它的长度最小，位置在原同边位置上
 void SetAm(int Start,int End);
-void GetAmplifierNode(vector<int> *AmplifierNode,vector<int> Route);返回有放大器的点
-void OutPut(Task *pcTask);输出函数
+void GetAmplifierNode(vector<int> *AmplifierNode,vector<int> Route);//返回有放大器的点
+void OutPut(Task *pcTask);//输出函数
 
-typedef pair<int,int> Pair;
 
 const int inf = 0x3f3f3f3f; //代表无穷大。
-const int maxn = 100;//最大顶点数
-const int maxl = 5000;//最大边数。
+
 
 unsigned int iNode_num;    
 unsigned int iLine_num;    
@@ -121,15 +103,16 @@ unsigned int iTask_num;
 unsigned int iPass_num;    
 unsigned int iMax_DisToStance;
 
-bool Deter[maxn];//是否已确定
-int DisToS[maxn];//距离原点距离
-Node node[maxn];
-vector<Edge> g_tEdge[maxn];//数组，序号是点，内容是边的集合核心
-int father[maxn];//父子数组，序号是子，内容是父，创建输出路径
+//距离原点距离
+bool Deter[100000];
+int DisToS[100000];
+Node *node;
+vector<Edge> *g_tEdge;//数组，序号是点，内容是边的集合核心
+int *father;//父子数组，序号是子，内容是父，创建输出路径
 
 int NewEdgeNum = 0;//新增边的数量
 vector<int> NewEdgeNode;  //新增边起止集合
-vector<vector<int>> input_data;输入数据
+vector<vector<int>> input_data;//输入数据
 
 
 
@@ -145,8 +128,13 @@ void init()
 
 int main()
 {
-    int i;   
-    ReadFile();
+    int i;
+    int ret;   
+    ret = ReadFile();
+    if (ret != 0)
+    {
+        cout << "read err" << endl;
+    }
 
     iNode_num     = input_data[0][0];
     iLine_num     = input_data[0][1];
@@ -154,8 +142,11 @@ int main()
     iPass_num     = input_data[0][3];
     iMax_DisToStance = input_data[0][4];
     /**/
-    // int edge_nums[iLine_num];
-
+    // Deter   = new bool[iNode_num];//是否已确定
+    // DisToS  = new int[iNode_num];//距离原点距离
+    node    = new Node[iNode_num];
+    g_tEdge = new vector<Edge>[iNode_num];//数组，序号是点，内容是边的集合核心
+    father  = new int[iNode_num];//父子数组，序号是子，内容是父，创建输出路径
     Sort();
 
     Edge temp;
@@ -172,8 +163,7 @@ int main()
         g_tEdge[input_data[i][1]].push_back(temp);      
     }
     /**/
-    Task tTask[iTask_num];
-    vector<int> Task_Lines;
+    Task *tTask = new Task[iTask_num];
     for (i = 0; i < iTask_num; i++)
     {
         tTask[i].pass_num = -1;
@@ -200,12 +190,10 @@ int main()
                 NewEdgeNum ++;
             }
         }
-        // cout << tTask[i].pass_num << endl;
         GetAmplifierNode(&tTask[i].AmplifierNode,tTask[i].Route);
 
-        // CountPassNum(tTask[i].Route,iLine_num,&Task_Lines);
     }
-    OutPut(tTask);
+    // OutPut(tTask);
 
     return 0;
 }
@@ -252,7 +240,7 @@ int ConfirmPassNum(vector<int> Route,int *NewNode,vector<int> *EdgeNums)
     bool PassIsTrue = false;
     int num = -1;
     int edge_num[Route.size()-1];
-    int tmp;
+    DOUINT tmp;
     int dis;
     for (int j = 0; j < iPass_num; j++)//通道循环
     {
@@ -260,9 +248,9 @@ int ConfirmPassNum(vector<int> Route,int *NewNode,vector<int> *EdgeNums)
         {
             tmp = GetEdgeNum(Route[m],Route[m+1],g_tEdge[Route[m]]);
             
-            for(int n = 0; n < tmp%10; n++)//此点所有边的循环
+            for(int n = 0; n <  tmp.second; n++)//此点所有边的循环
             {
-                if(g_tEdge[Route[m]][tmp/10+n].PassStatus[j] == 0)//此点此边的此通道未占用
+                if(g_tEdge[Route[m]][ tmp.first+n].PassStatus[j] == 0)//此点此边的此通道未占用
                 {
                     PassIsTrue = false;
                     edge_num[m] = n;//将此点此边的位置号传回
@@ -282,17 +270,25 @@ int ConfirmPassNum(vector<int> Route,int *NewNode,vector<int> *EdgeNums)
             for(int m = 0; m < Route.size() -1 ; m++)//所经点的循环
             {
                 tmp = GetEdgeNum(Route[m],Route[m+1],g_tEdge[Route[m]]);
-                g_tEdge[Route[m]][tmp/10 + edge_num[m]].PassStatus[j] = 1;//此边此通号占用
+                g_tEdge[Route[m]][ tmp.first + edge_num[m]].PassStatus[j] = 1;//此边此通号占用
+                EdgeNums->push_back(g_tEdge[Route[m]][tmp.first + edge_num[m]].Edge_num);//将所用到的边的ID放入任务的容器中
+                cout << Route[m] <<  ' ' << g_tEdge[Route[m]][tmp.first + edge_num[m]].iTo;
                 tmp = GetEdgeNum(Route[m+1],Route[m],g_tEdge[Route[m + 1]]);
-                g_tEdge[Route[m + 1]][tmp/10 + edge_num[m]].PassStatus[j] = 1;
-                EdgeNums->push_back(g_tEdge[Route[m + 1]][tmp/10 + edge_num[m]].Edge_num);//将所用到的边的ID放入任务的容器中
+                g_tEdge[Route[m + 1]][ tmp.first + edge_num[m]].PassStatus[j] = 1;
+                tmp = GetEdgeNum(Route[m],Route[m+1],g_tEdge[Route[m]]);
                 if (node[Route[m]].bIsAmplifier == true)
+                {
                     dis = 0;
-                dis = dis + g_tEdge[Route[m]][tmp/10 + edge_num[m]].iDis;
+                }   
+                dis = dis + g_tEdge[Route[m]][tmp.first + edge_num[m]].iDis;
                 if (dis > iMax_DisToStance)
+                {
                     node[Route[m]].PutAmplifier();
+                    dis = g_tEdge[Route[m]][tmp.first + edge_num[m]].iDis;
+                }   
             }
             num = j;
+            cout << endl;
             break;
         }
     }
@@ -323,18 +319,7 @@ int ReadFile()
         }
         input_data.push_back(data);
     }
-    
     return 0;
-    // infile.close();
-    // int i;
-    // vector<int> data;
-    // string str[5];
-    // for (i = 0;i < 5 ;i++)
-    // {
-    //     cin >> str[i];
-    //     data.push_back(stoi(str[i]));
-    // }
-    // input_data->push_back(data);
 }
 
 
@@ -397,10 +382,11 @@ void check(vector<int> &src, map<int,int> &dst)
 }
 
 
-int GetEdgeNum(int Start,int End,vector<Edge> edge)
+DOUINT GetEdgeNum(int Start,int End,vector<Edge> edge)
 {
     int num = -1;
     int num1 = 0;
+    DOUINT tmp;
     for(int i = 0; i < edge.size(); i++)
     {
         if(End == edge[i].iTo)
@@ -410,20 +396,29 @@ int GetEdgeNum(int Start,int End,vector<Edge> edge)
             num1 ++;
         }
     }
-    return num*10+num1;
+    tmp = make_pair(num, num1);
+    return tmp;
 }
 
 void SetNewEdge(int Start,int End)
 {
-    int tmp = GetEdgeNum(Start,End,g_tEdge[Start]);
-    g_tEdge[Start].insert(g_tEdge[Start].begin() + tmp/10,g_tEdge[Start][tmp/10]);
+    int a;
+    if (Start > End)
+    {
+        a = Start;
+        Start = End;
+        End = a;
+    }
+    DOUINT tmp = GetEdgeNum(Start,End,g_tEdge[Start]);
+    g_tEdge[Start].insert(g_tEdge[Start].begin() + tmp.first,g_tEdge[Start][tmp.first]);
 	for (int i = 0;i < iPass_num; i++)
     {
-		g_tEdge[Start][tmp/10].PassStatus[i] = 0;
+		g_tEdge[Start][ tmp.first].PassStatus[i] = 0;
 	}
-    g_tEdge[Start][tmp/10].Edge_num = iLine_num + NewEdgeNum;
-    g_tEdge[End].insert(g_tEdge[End].begin() + tmp/10,g_tEdge[Start][tmp/10]);
-	g_tEdge[End].[tmp/10].iTo = Start;
+    g_tEdge[Start][tmp.first].Edge_num = iLine_num + NewEdgeNum;
+    DOUINT tmp1 = GetEdgeNum(End,Start,g_tEdge[End]);
+    g_tEdge[End].insert(g_tEdge[End].begin() + tmp1.first,g_tEdge[Start][tmp.first]);
+	g_tEdge[End][tmp1.first].iTo = Start;
     NewEdgeNode.push_back(Start);
     NewEdgeNode.push_back(End);
 }
@@ -435,16 +430,22 @@ void Node::PutAmplifier(void)
 
 void GetAmplifierNode(vector<int> *AmplifierNode,vector<int> Route)
 {
-    for(const auto& i : Route)
+    // for(const auto& i : Route)
+    // {
+    //     if(node[i].bIsAmplifier)
+    //         AmplifierNode->push_back(i);
+    // }
+    for(int m = 1; m < Route.size() -1 ; m++)//所经点的循环
     {
-        if(node[i].bIsAmplifier)
-            AmplifierNode->push_back(i);
+        if(node[Route[m]].bIsAmplifier)
+             AmplifierNode->push_back(Route[m]);
     }
 }
 
 void OutPut(Task *pcTask)
 {
     int i;
+    vector<int> a;
     cout << NewEdgeNum << endl;
     for (i = 0; i < NewEdgeNum; i++)
     {
