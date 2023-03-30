@@ -89,7 +89,6 @@ void GetRoute(int i,vector<int> *Route);//从父子序列中得到route
 int ConfirmPassNum(vector<int> Route,int *NewNode,vector<int> *EdgeNums);//确定任务所用通道号
 DOUINT GetEdgeNum(int Start,int End,vector<Edge> edge);//通过起止点，确认所用边的编号，根据这个编号确认其在gEdge中的位置
 void SetNewEdge(int Start,int End);//在起止点上放一条新边，它的长度最小，位置在原同边位置上
-void SetAm(int Start,int End);
 void GetAmplifierNode(vector<int> *AmplifierNode,vector<int> Route);//返回有放大器的点
 void OutPut(Task *pcTask);//输出函数
 
@@ -113,7 +112,7 @@ int *father;//父子数组，序号是子，内容是父，创建输出路径
 int NewEdgeNum = 0;//新增边的数量
 vector<int> NewEdgeNode;  //新增边起止集合
 vector<vector<int>> input_data;//输入数据
-
+vector<int> *passEdge;
 
 
 
@@ -148,6 +147,8 @@ int main()
     node    = new Node[iNode_num];
     g_tEdge = new vector<Edge>[iNode_num];//数组，序号是点，内容是边的集合核心
     father  = new int[iNode_num];//父子数组，序号是子，内容是父，创建输出路径
+    passEdge = new vector<int>[iPass_num];
+
     Sort();
 
     Edge temp;
@@ -175,16 +176,16 @@ int main()
         tTask[i].iEnd   = input_data[1 + iLine_num + i][1];
         DisToS[tTask[i].iStart] = 0;
         dijkstra(&tTask[i]);
-        tTask[i].cost   = DisToS[tTask[i].iEnd];
+        // tTask[i].cost   = DisToS[tTask[i].iEnd];
         // cout << tTask[i].cost << endl;
         // for (int j = 0; j < tTask[i].Route.size(); j++)
         // {
         //     cout <<tTask[i].Route[j] << "  ";        
         // }
         // cout << endl;
-
         while(tTask[i].pass_num < 0)
         {
+            
             tTask[i].pass_num = ConfirmPassNum(tTask[i].Route,&NewNode,&tTask[i].EdgeNum);
             if(tTask[i].pass_num < 0)
             {
@@ -195,26 +196,25 @@ int main()
         GetAmplifierNode(&tTask[i].AmplifierNode,tTask[i].Route);
 
     }
+    vector<int> a[iPass_num];
+    for (i = 0; i < iPass_num; i++)
+    {
+        for (int j = 0; j < iTask_num; j++)
+        {
+            if(tTask[j].pass_num == i)
+            {
+                for (const auto& n: tTask[j].EdgeNum)
+                    a[i].push_back(n);
+            }
+        }
+        // sort(a[i].begin(),a[i].end());
+        // for (const auto& n: a[i])
+        //      cout << n << " ";
+        // cout << endl;
+        if (set<int>(a[i].begin(),a[i].end()).size()!=a[i].size())
+            cout << "err" << endl;
+    }
     OutPut(tTask);
-    // vector<int> a[iPass_num];
-    // for (i = 0; i < iPass_num; i++)
-    // {
-    //     for (int j = 0; j < iTask_num; j++)
-    //     {
-    //         if(tTask[j].pass_num == i)
-    //         {
-    //             for (const auto& n: tTask[j].EdgeNum)
-    //                 a[i].push_back(n);
-    //         }
-    //     }
-    //     sort(a[i].begin(),a[i].end());
-    //     // for (const auto& n: a[i])
-    //     //      cout << n << " ";
-    //     // cout << endl;
-    //     if (set<int>(a[i].begin(),a[i].end()).size()!=a[i].size())
-    //         cout << i << endl;
-    // }
-    
     return 0;
 }
 
@@ -241,8 +241,8 @@ void dijkstra(Task *ptTask)
 		Deter[pos] = true;
 
 		int to,len;//存储以pos为起点的边的终点和权值。
-		for(i = 0; i < g_tEdge[pos].size(); i++){
-			//遍历pos顶点所有的边，更新最短路径。
+		for(i = 0; i < g_tEdge[pos].size(); i++)//遍历pos顶点所有的边，更新最短路径。
+        {
 			to = g_tEdge[pos][i].iTo;
             len = g_tEdge[pos][i].iDis;
 			if(!Deter[to] && DisToS[to] > DisToS[pos] + len){//若这点没确定，而且原D大于已确定点加到此点距离，更新
@@ -261,16 +261,16 @@ int ConfirmPassNum(vector<int> Route,int *NewNode,vector<int> *EdgeNums)
     int num = -1;
     int edge_num[Route.size()-1];
     DOUINT tmp;
-    int dis;
-    for (int j = 0; j < iPass_num; j++)//通道循环
+    int dis,j;
+    for (j = 0; j < iPass_num; j++)//通道循环
     {
         for(int m = 0; m < Route.size() - 1; m++)//所经点的循环
         {
             tmp = GetEdgeNum(Route[m],Route[m+1],g_tEdge[Route[m]]);
             
-            for(int n = 0; n <  tmp.second; n++)//此点所有边的循环
+            for(int n = 0; n < tmp.second; n++)//此点所有边的循环
             {
-                if(g_tEdge[Route[m]][ tmp.first+n].PassStatus[j] == false)//此点此边的此通道未占用
+                if(g_tEdge[Route[m]][tmp.first+n].PassStatus[j] == false)//此点此边的此通道未占用
                 {
                     PassIsTrue = false;
                     edge_num[m] = n;//将此点此边的位置号传回
@@ -287,13 +287,24 @@ int ConfirmPassNum(vector<int> Route,int *NewNode,vector<int> *EdgeNums)
         if(PassIsTrue == false)//此通道号在路径所用边上均有空位，可以将此通道号确定。
         {
             dis = 0;
+            for(int m = 0; m < Route.size() -1 ; m++)
+            {
+                tmp = GetEdgeNum(Route[m],Route[m+1],g_tEdge[Route[m]]);
+                passEdge[j].push_back(g_tEdge[Route[m]][tmp.first + edge_num[m]].Edge_num); 
+                // if (g_tEdge[Route[m]][tmp.first + edge_num[m]].iTo != Route[m+1])
+                //     g_tEdge[Route[m]][tmp.first + edge_num[m]].iTo = Route[m+1]; 
+                if (set<int>(passEdge[j].begin(),passEdge[j].end()).size()!=passEdge[j].size())
+                {
+                    if ( g_tEdge[Route[m]][tmp.first + edge_num[m]].Edge_num > iLine_num )
+                        cout << "err ";
+                }
+            }
+                   
             for(int m = 0; m < Route.size() -1 ; m++)//所经点的循环
             {
                 tmp = GetEdgeNum(Route[m],Route[m+1],g_tEdge[Route[m]]);
-                g_tEdge[Route[m]][ tmp.first + edge_num[m]].PassStatus[j] = true;//此边此通号占用
                 EdgeNums->push_back(g_tEdge[Route[m]][tmp.first + edge_num[m]].Edge_num);//将所用到的边的ID放入任务的容器中
-                // if(g_tEdge[Route[m]][tmp.first + edge_num[m]].iTo != Route[m + 1])
-                // {   cout << Route[m] <<  " " << Route[m + 1];}
+                g_tEdge[Route[m]][ tmp.first + edge_num[m]].PassStatus[j] = true;//此边此通号占用
                 tmp = GetEdgeNum(Route[m+1],Route[m],g_tEdge[Route[m + 1]]);
                 g_tEdge[Route[m + 1]][ tmp.first + edge_num[m]].PassStatus[j] = true;
                 tmp = GetEdgeNum(Route[m],Route[m+1],g_tEdge[Route[m]]);
@@ -308,6 +319,7 @@ int ConfirmPassNum(vector<int> Route,int *NewNode,vector<int> *EdgeNums)
                     dis = g_tEdge[Route[m]][tmp.first + edge_num[m]].iDis;
                 }   
             }
+            
             num = j;
             // cout << endl;
             break;
@@ -413,7 +425,9 @@ DOUINT GetEdgeNum(int Start,int End,vector<Edge> edge)
         if(End == edge[i].iTo)
         {
             if(num < 0)
+            {
                 num = i;
+            }   
             num1 ++;
         }
     }
@@ -430,13 +444,24 @@ void SetNewEdge(int Start,int End)
         Start = End;
         End = a;
     }
+    // DOUINT tmp = GetEdgeNum(Start,End,g_tEdge[Start]);
+    // g_tEdge[Start].insert(g_tEdge[Start].begin() + tmp.first,g_tEdge[Start][tmp.first]);
+    // memset(g_tEdge[Start][tmp.first].PassStatus, false, sizeof(bool[iPass_num]));
+    // g_tEdge[Start][tmp.first].Edge_num = iLine_num + NewEdgeNum;
+    // DOUINT tmp1 = GetEdgeNum(End,Start,g_tEdge[End]);
+    // g_tEdge[End].insert(g_tEdge[End].begin() + tmp1.first,g_tEdge[End][tmp1.first]);
+	// g_tEdge[End][tmp1.first].iTo = Start;
+    Edge temp;
     DOUINT tmp = GetEdgeNum(Start,End,g_tEdge[Start]);
-    g_tEdge[Start].insert(g_tEdge[Start].begin() + tmp.first,g_tEdge[Start][tmp.first]);
-    memset(g_tEdge[Start][tmp.first].PassStatus, false, sizeof(bool[iPass_num]));
-    g_tEdge[Start][tmp.first].Edge_num = iLine_num + NewEdgeNum;
-    DOUINT tmp1 = GetEdgeNum(End,Start,g_tEdge[End]);
-    g_tEdge[End].insert(g_tEdge[End].begin() + tmp1.first,g_tEdge[Start][tmp.first]);
-	g_tEdge[End][tmp1.first].iTo = Start;
+    temp.iTo = End;
+    temp.iDis = g_tEdge[Start][tmp.first].iDis;
+    temp.Edge_num = iLine_num + NewEdgeNum;
+    temp.PassStatus = new bool[iPass_num];
+    memset(temp.PassStatus, false, sizeof(bool[iPass_num]));
+    g_tEdge[Start].insert(g_tEdge[Start].begin() + tmp.first,temp);
+    temp.iTo = Start;
+    tmp = GetEdgeNum(End,Start,g_tEdge[End]);
+    g_tEdge[End].insert(g_tEdge[End].begin() + tmp.first,temp);
     NewEdgeNode.push_back(Start);
     NewEdgeNode.push_back(End);
 }
@@ -474,6 +499,7 @@ void OutPut(Task *pcTask)
         cout << pcTask[i].pass_num << " " << pcTask[i].EdgeNum.size() << " " << pcTask[i].AmplifierNode.size() << " "; 
         VertorOut(pcTask[i].EdgeNum);
         VertorOut(pcTask[i].AmplifierNode);
-        cout << endl;
+        if (i != iTask_num -1)
+            cout << endl;
     }
 }
